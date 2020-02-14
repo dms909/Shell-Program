@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <fcntl.h>
 #define MAX_LINE 80
 
 int main(void){
@@ -41,11 +41,17 @@ int main(void){
 
 		int i = 0;
 		while(args[i] != NULL){
+			if(!strcmp(args[i], "<") && i > 0){
+				input = 1;
+			}
+			else if(!strcmp(args[i], ">") && i > 0){
+				output = 1;
+			}
 			i++;
-			args[i] = strtok(NULL, " ");
+			args[i] = strtok(NULL, " ");	
 		}
 		int j;
-				
+		printf("Output is: %d\n", output);	
 		pid_t pid = fork();
 		if(pid < 0){
 			printf("Error on child process creation, exiting...");
@@ -54,14 +60,32 @@ int main(void){
 		
 		if(pid == 0){
 			if(strcmp(user_input, "") && strcmp(user_input, "!!")){
-				execvp(args[0], args);
-				printf("Command not found\n");
-				exit(1);
+				if(input || output){
+					int fd = open(args[i-1], O_RDWR | O_CREAT, S_IROTH | S_IRWXU);
+					if(output){
+						dup2(fd, 1);
+						args[i-1] = NULL;
+						args[i-2] = NULL;
+						execvp(args[0], args);
+					}	
+					else if(input){
+						dup2(fd, 0);
+						args[i-1] = NULL;
+						args[i-2] = NULL;
+						execvp(args[0], args);
+					}
+				}
+				else{
+					execvp(args[0], args);
+					printf("Command not found\n");
+					exit(1);
+				}
 			}
 			exit(1);
 		} else{
 			waitpid(pid, NULL, 0);	
 			int j;
+			input = output = 0;
 			if(strcmp(user_input, "!!")){
 				strcpy(history, user_input);
 			}
